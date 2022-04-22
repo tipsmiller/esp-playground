@@ -9,10 +9,11 @@
 #include "servo.h"
 
 static const char *TAG = "main";
+Servo sweeper;
 
 void loop() {
     // Main code goes here
-    sweepServoAngle();
+    sweeper.sweepTick(1);
     vTaskDelay(10/portTICK_PERIOD_MS);
 }
 
@@ -27,7 +28,7 @@ void beginHeartbeat();
 extern "C" void app_main() {
     ESP_LOGI(TAG, "Program beginning");
     beginHeartbeat();
-    initServo(13);
+    sweeper = Servo(GPIO_NUM_13);
     while(true) {
         loop();
     }
