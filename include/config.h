@@ -1,1 +1,1 @@
-#define BLINK_PIN 2
+#define BLINK_PIN GPIO_NUM_2

@@ -24,7 +24,7 @@ void loop() {
 
 void beginHeartbeat();
 
-void app_main() {
+extern "C" void app_main() {
     ESP_LOGI(TAG, "Program beginning");
     beginHeartbeat();
     initServo(13);

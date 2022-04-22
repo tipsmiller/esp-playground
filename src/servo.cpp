@@ -15,8 +15,9 @@ void initServo(int pin) {
     mcpwm_config_t pwm_config = {
         .frequency = 50,
         .cmpr_a = 0,
-        .counter_mode = MCPWM_UP_COUNTER,
+        .cmpr_b = 0,
         .duty_mode = MCPWM_DUTY_MODE_0,
+        .counter_mode = MCPWM_UP_COUNTER,
     };
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
 };
