@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "servo.h"
 #include "wifi_client.h"
+#include "http_server.h"
 
 static const char *TAG = "main";
 Servo sweeper;
@@ -30,9 +31,13 @@ extern "C" void app_main() {
     beginHeartbeat();
     sweeper = Servo(GPIO_NUM_13);
     initWiFi();
+    httpd_handle_t server = start_webserver();
 
     // Begin main loop
     while(true) {
         loop();
     }
+
+    // Cleanup
+    stop_webserver(server);
 }
