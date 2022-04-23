@@ -7,6 +7,7 @@
 #include "heartbeat.h"
 #include "esp_log.h"
 #include "servo.h"
+#include "wifi_client.h"
 
 static const char *TAG = "main";
 Servo sweeper;
@@ -23,12 +24,14 @@ void loop() {
     printf(stats);
 }*/
 
-void beginHeartbeat();
-
 extern "C" void app_main() {
+    // Setup
     ESP_LOGI(TAG, "Program beginning");
     beginHeartbeat();
     sweeper = Servo(GPIO_NUM_13);
+    initWiFi();
+
+    // Begin main loop
     while(true) {
         loop();
     }

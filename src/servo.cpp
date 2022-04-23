@@ -4,12 +4,12 @@
 
 static const char *TAG = "servo";
 
-Servo::Servo(gpio_num_t servoPin) {
-    pin = servoPin;
-    minMicros = 500;
-    maxMicros = 2500;
-    setMicros = minMicros;
-    sweepDirection = 1;
+Servo::Servo(gpio_num_t servo_pin) {
+    pin = servo_pin;
+    min_micros = 500;
+    max_micros = 2500;
+    set_micros = min_micros;
+    sweep_direction = 1;
 
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, pin);
 
@@ -25,9 +25,9 @@ Servo::Servo(gpio_num_t servoPin) {
 
 // set duty time
 void Servo::setServoMicros(int micros) {
-    setMicros = micros;
-    ESP_LOGI(TAG, "Set micros: %d", setMicros);
-    ESP_ERROR_CHECK(mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, setMicros));
+    set_micros = micros;
+    ESP_LOGI(TAG, "Set micros: %d", set_micros);
+    ESP_ERROR_CHECK(mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, set_micros));
 }
 
 void initServo(int pin) {
@@ -56,17 +56,17 @@ void Servo::setDecimal(float pos) {
 };
 
 void Servo::sweepTick(int increment){
-    int micros = setMicros;
-    if (sweepDirection == 1) {
+    int micros = set_micros;
+    if (sweep_direction == 1) {
         micros += increment;
     } else {
         micros -= increment;
     }
-    if (micros == maxMicros) {
-        sweepDirection = 0;
+    if (micros == max_micros) {
+        sweep_direction = 0;
     }
-    if (micros == minMicros) {
-        sweepDirection = 1;
+    if (micros == min_micros) {
+        sweep_direction = 1;
     }
     setServoMicros(micros);
 };
