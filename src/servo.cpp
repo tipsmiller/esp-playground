@@ -1,5 +1,4 @@
-#include "driver/mcpwm.h"
-#include "esp_log.h"
+
 #include "servo.h"
 
 static const char *TAG = "servo";

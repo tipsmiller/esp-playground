@@ -1,3 +1,7 @@
+#include "driver/mcpwm.h"
+#include "esp_log.h"
+#include "driver/gpio.h"
+
 class Servo {
     gpio_num_t pin;
     int set_micros;

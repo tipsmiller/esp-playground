@@ -1,8 +1,3 @@
-#include "stdio.h"
-#include "string.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
 #include "config.h" 
 #include "heartbeat.h"
 #include "esp_log.h"
@@ -13,10 +8,12 @@
 #include "MPU6050.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 #include <driver/i2c.h>
+#include "VescUart/VescUart.h"
 
 static const char *TAG = "main";
 Servo sweeper;
 MPU6050 mpu;
+VescUart vesc;
 
 /*void printStats() {
     char stats [256];
@@ -24,7 +21,7 @@ MPU6050 mpu;
     printf(stats);
 }*/
 
-void setupI2C() {
+/*void setupI2C() {
 	i2c_config_t conf {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = PIN_SDA,
@@ -81,30 +78,39 @@ void readMPU() {
         printf("PITCH: %3.1f, ", ypr[1] * 180/M_PI);
         printf("ROLL: %3.1f \n", ypr[2] * 180/M_PI);
     }
-}
+}*/
 
 void loop() {
     // Main code goes here
     //sweeper.sweepTick(1);
-    readMPU();
-    vTaskDelay(10/portTICK_PERIOD_MS);
+    //readMPU();
+    vesc.sendCommand();
+    vTaskDelay(1000/portTICK_PERIOD_MS);
 }
+
 
 extern "C" void app_main() {
     // Setup
     ESP_LOGI(TAG, "Program beginning");
+
     // begin i2c
-    setupI2C();
+    //setupI2C();
+
     // init storage
-    static const char* base_path = "/data";
-    ESP_ERROR_CHECK(mountSpiffs(base_path));
+    //static const char* base_path = "/data";
+    //ESP_ERROR_CHECK(mountSpiffs(base_path));
+
     // start networking and server
-    ESP_ERROR_CHECK(startWebserver(base_path));
+    //ESP_ERROR_CHECK(startWebserver(base_path));
+
     // start the heartbeat
     beginHeartbeat();
-    // setup the servo
-    sweeper = Servo(GPIO_NUM_13);
 
+    // setup the servo
+    //sweeper = Servo(GPIO_NUM_13);
+
+    // setup VESC
+    vesc.init();
 
     // Begin main loop
     while(true) {
