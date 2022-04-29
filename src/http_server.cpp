@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include "esp_log.h"
 #include "esp_vfs.h"
+#include "wifi_client.h"
 #include "http_server.h"
 
 static const char *TAG = "http server";
@@ -15,7 +16,7 @@ struct file_server_data {
 
     /* Scratch buffer for temporary storage during file transfer */
     char scratch[SCRATCH_BUFSIZE];
-};
+} server_data;
 
 static esp_err_t get_handler(httpd_req_t *req)
 {
@@ -71,19 +72,8 @@ static esp_err_t get_handler(httpd_req_t *req)
 
 esp_err_t startWebserver(const char* base_path)
 {
-    static struct file_server_data *server_data = NULL;
-    if (server_data) {
-        ESP_LOGE(TAG, "File server already started");
-        return ESP_ERR_INVALID_STATE;
-    }
-    /* Allocate memory for server data */
-    server_data = (file_server_data*)calloc(1, sizeof(struct file_server_data));
-    if (!server_data) {
-        ESP_LOGE(TAG, "Failed to allocate memory for server data");
-        return ESP_ERR_NO_MEM;
-    }
-    strlcpy(server_data->base_path, base_path,
-            sizeof(server_data->base_path));
+    initWiFi();
+    strlcpy(server_data.base_path, base_path, sizeof(server_data.base_path));
 
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -96,7 +86,7 @@ esp_err_t startWebserver(const char* base_path)
             .uri      = "/",
             .method   = HTTP_GET,
             .handler  = get_handler,
-            .user_ctx = server_data
+            .user_ctx = &server_data,
         };
         httpd_register_uri_handler(server, &uri_get);
     } else {

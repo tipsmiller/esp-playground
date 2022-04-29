@@ -8,7 +8,6 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "servo.h"
-#include "wifi_client.h"
 #include "http_server.h"
 #include "spiffs.h"
 
@@ -31,13 +30,15 @@ extern "C" void app_main() {
     // Setup
     ESP_LOGI(TAG, "Program beginning");
     // init storage
-    const char* base_path = "/data";
+    static const char* base_path = "/data";
     ESP_ERROR_CHECK(mountSpiffs(base_path));
-    initWiFi();
+    // start networking and server
     ESP_ERROR_CHECK(startWebserver(base_path));
-
+    // start the heartbeat
     beginHeartbeat();
+    // setup the servo
     sweeper = Servo(GPIO_NUM_13);
+
 
     // Begin main loop
     while(true) {
