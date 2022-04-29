@@ -26,7 +26,7 @@ Servo::Servo(gpio_num_t servo_pin) {
 // set duty time
 void Servo::setServoMicros(int micros) {
     set_micros = micros;
-    ESP_LOGI(TAG, "Set micros: %d", set_micros);
+    //ESP_LOGI(TAG, "Set micros: %d", set_micros);
     ESP_ERROR_CHECK(mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_GEN_A, set_micros));
 }
 
