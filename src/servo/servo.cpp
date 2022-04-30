@@ -1,4 +1,3 @@
-
 #include "servo.h"
 
 static const char *TAG = "servo";
