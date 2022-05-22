@@ -5,11 +5,11 @@ static const char *TAG = "VESC";
 
 static void send_func(unsigned char *data, unsigned int len) {
     int bytesWritten = uart_write_bytes(VESC_PORT, data, len);
-    ESP_LOGI(TAG, "bytes written: %d", bytesWritten);
+    // ESP_LOGI(TAG, "packet written: %d bytes", bytesWritten);
 }
 
 static void process_func(unsigned char *data, unsigned int len) {
-
+    // ESP_LOGI(TAG, "packet received: %d bytes", len);
 }
 
 VescUart::VescUart() {
@@ -35,11 +35,19 @@ void VescUart::init() {
     ESP_LOGI(TAG, "Done setting up UART for VESC");
 }
 
-void VescUart::sendCommand() {
-    ESP_LOGI(TAG, "Sending command to VESC");
+void VescUart::sendCommand(uint8_t commandBytes[], int length) {
+    // ESP_LOGI(TAG, "Sending command to VESC");
+    // Make a packet
     PACKET_STATE_t packet {};
     packet_init(&send_func, &process_func, &packet);
+    // send the packet with the contents
+    packet_send_packet(commandBytes, length, &packet);
+    // reset the packet for next use
+    packet_reset(&packet);
+}
 
+
+void VescUart::sendDuty(float duty) {
     // make a payload buffer
     uint8_t command[5];
     int index = 0;
@@ -47,8 +55,6 @@ void VescUart::sendCommand() {
     command[index] = COMM_SET_DUTY;
     index++;
     // add the command value
-    buffer_append_int32(command, (int32_t)(0.05 * 100000.0), &index);
-
-    packet_send_packet(command, 5, &packet);
-    packet_reset(&packet);
+    buffer_append_int32(command, (int32_t)(duty * 100000.0), &index);
+    this->sendCommand(command, 5);
 }

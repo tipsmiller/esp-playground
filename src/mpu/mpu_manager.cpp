@@ -1,5 +1,3 @@
-#include "MPU6050.h"
-#include "MPU6050_6Axis_MotionApps20.h"
 #include "driver/i2c.h"
 #include "mpu_manager.h"
 #include "esp_log.h"
@@ -39,9 +37,10 @@ void setupI2C() {
 	mpu.setDMPEnabled(true);
 }
 
-void readMPU() {
+MPUValues readMPU() {
     uint16_t packetSize = mpu.dmpGetFIFOPacketSize();
     uint8_t mpuIntStatus = mpu.getIntStatus();
+    MPUValues result {};
 
     if (mpuIntStatus & 0x02) {
         // reset DMP FIFO to prevent overflows and get latest info
@@ -54,15 +53,12 @@ void readMPU() {
 
         // read a packet from FIFO
         uint8_t fifoBuffer[64];
-        Quaternion q;           // [w, x, y, z]         quaternion container
-        VectorFloat gravity;    // [x, y, z]            gravity vector
-        float ypr[3];           // [yaw, pitch, roll]   ypr container
         mpu.getFIFOBytes(fifoBuffer, packetSize);
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-        printf("YAW: %3.1f, ", ypr[0] * 180/M_PI);
-        printf("PITCH: %3.1f, ", ypr[1] * 180/M_PI);
-        printf("ROLL: %3.1f \n", ypr[2] * 180/M_PI);
+        mpu.dmpGetQuaternion(&result.q, fifoBuffer);
+        mpu.dmpGetGravity(&result.gravity, &result.q);
+        mpu.dmpGetYawPitchRoll(result.ypr, &result.q, &result.gravity);
+    } else {
+        ESP_LOGE(TAG, "Could not get reading from MPU");
     }
+    return result;
 }

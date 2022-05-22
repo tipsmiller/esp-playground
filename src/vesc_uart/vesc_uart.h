@@ -16,6 +16,7 @@ private:
 public:
     VescUart();
     void init();
-    void sendCommand();
+    void sendCommand(uint8_t commandBytes[], int length);
+    void sendDuty(float duty);
 };
 
