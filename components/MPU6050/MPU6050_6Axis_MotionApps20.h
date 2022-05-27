@@ -307,7 +307,7 @@ const unsigned char dmpConfig[MPU6050_DMP_CONFIG_SIZE] = {
     0x07,   0x46,   0x01,   0x9A,                     // CFG_GYRO_SOURCE inv_send_gyro
     0x07,   0x47,   0x04,   0xF1, 0x28, 0x30, 0x38,   // CFG_9 inv_send_gyro -> inv_construct3_fifo
     0x07,   0x6C,   0x04,   0xF1, 0x28, 0x30, 0x38,   // CFG_12 inv_send_accel -> inv_construct3_fifo
-    0x02,   0x16,   0x02,   0x00, 0x04                // D_0_22 inv_set_fifo_rate
+    0x02,   0x16,   0x02,   0x00, 0x03                // D_0_22 inv_set_fifo_rate
 
     // This very last 0x13 WAS a 0x09, which drops the FIFO rate down to 20 Hz. 0x07 is 25 Hz,
     // 0x01 is 100Hz. Going faster than 100Hz (0x00=200Hz) tends to result in very noisy data.
@@ -715,6 +715,19 @@ uint8_t MPU6050::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gra
     data[1] = atan(gravity -> x / sqrt(gravity -> y*gravity -> y + gravity -> z*gravity -> z));
     // roll: (tilt left/right, about X axis)
     data[2] = atan(gravity -> y / sqrt(gravity -> x*gravity -> x + gravity -> z*gravity -> z));
+    return 0;
+}
+
+
+// from https://electronics.stackexchange.com/questions/364943/mpu6050-showing-inconsistent-angle-values
+// switches the z/x axes to give pitch aligned with a different board position
+uint8_t MPU6050::dmpGetYawPitchRollOnEnd(float *data, Quaternion *q, VectorFloat *gravity) {
+    // yaw: (about X axis)
+    data[0] = atan2(2*q->z * q->y - 2 * q->w * q->x, 2 * q->w * q->w + 2 * q->z * q->z - 1);
+    // pitch: (nose up/down, about Y axis)
+    data[1] = atan(gravity->z / sqrt(gravity->y * gravity->y + gravity->x * gravity->x));
+    // roll: (tilt left/right, about Z axis)
+    data[2] = atan(gravity->y / sqrt(gravity->z * gravity->z + gravity->x * gravity->x));
     return 0;
 }
 

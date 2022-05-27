@@ -30,10 +30,14 @@ void setupI2C() {
     ESP_LOGI(TAG, "Setting up MPU6050 DMP");
 	mpu.dmpInitialize();
 	// This need to be setup individually
-	mpu.setXGyroOffset(220);
-	mpu.setYGyroOffset(76);
-	mpu.setZGyroOffset(-85);
-	mpu.setZAccelOffset(1788);
+	mpu.setXAccelOffset(-3164);
+	mpu.setYAccelOffset(447);
+	mpu.setZAccelOffset(848);
+	mpu.setXGyroOffset(213);
+	mpu.setYGyroOffset(-80);
+	mpu.setZGyroOffset(24);
+    //mpu.CalibrateAccel(6);
+    //mpu.CalibrateGyro(6);
 	mpu.setDMPEnabled(true);
 }
 
@@ -48,7 +52,7 @@ MPUValues readMPU() {
         mpu.resetFIFO();
         // get current FIFO count
         uint16_t fifoCount = mpu.getFIFOCount();
-        // wait for correct available data length, should be a VERY short wait
+        // wait for correct available data length, should be a short wait
         while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
         // read a packet from FIFO
@@ -56,7 +60,7 @@ MPUValues readMPU() {
         mpu.getFIFOBytes(fifoBuffer, packetSize);
         mpu.dmpGetQuaternion(&result.q, fifoBuffer);
         mpu.dmpGetGravity(&result.gravity, &result.q);
-        mpu.dmpGetYawPitchRoll(result.ypr, &result.q, &result.gravity);
+        mpu.dmpGetYawPitchRollOnEnd(result.ypr, &result.q, &result.gravity);
     } else {
         ESP_LOGE(TAG, "Could not get reading from MPU");
     }

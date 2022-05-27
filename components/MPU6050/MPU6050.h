@@ -904,6 +904,7 @@ class MPU6050 {
             
             uint8_t dmpGetEuler(float *data, Quaternion *q);
             uint8_t dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity);
+            uint8_t dmpGetYawPitchRollOnEnd(float *data, Quaternion *q, VectorFloat *gravity);
 
             // Get Floating Point data from FIFO
             uint8_t dmpGetAccelFloat(float *data, const uint8_t* packet=0);

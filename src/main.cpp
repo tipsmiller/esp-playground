@@ -12,30 +12,34 @@
 
 static const char *TAG = "main";
 VescUart vesc;
-PIDController pid = PIDController(1.0, 0.0, 0.0, -1.0, 1.0);
+PIDController pid = PIDController(1.5, 0.00003, 0.0, -0.3, 0.3);
 MPUValues mpuValues;
 float outDuty;
 int adcReading;
 float setpoint = 0.0;
 MedianFilter mFilter = MedianFilter();
 int enabled = 0;
+float horizontalComponent;
 
 void loop() {
     // Main code goes here
     // read angle
     mpuValues = readMPU();
+    horizontalComponent = sin(mpuValues.ypr[1]);
     // read setpoint
     adc2_get_raw(BALANCE_REFERENCE_CHANNEL, ADC_WIDTH_BIT_12, &adcReading);
     if (mFilter.insert(adcReading)) {
         // Scale adc reading to float -1.0:1.0
         // 12-bit ADC gives values 0 to 2048 (2^12)
-        setpoint = (mFilter.calc() / pow(2, 11)) - 1.0;
+        setpoint = ((mFilter.calc() / pow(2, 11)) - 1.0);
+        // Scale to -0.1:0.1 for more sensitivity
+        setpoint = setpoint * 0.1;
     }
-    // check if enabled
-    enabled = gpio_get_level(ENABLE_PIN);
+    // check if enabled (currently negated)
+    enabled = !gpio_get_level(ENABLE_PIN);
     if (enabled == 1) {
-        // update PID to get output
-        outDuty = pid.update(mpuValues.ypr[1], setpoint);
+        // update PID to get output (negated)
+        outDuty = -pid.update(mpuValues.ypr[1], setpoint);
         // send command to motor controller
         ESP_LOGI(TAG, "output %1.3f", outDuty);
         vesc.sendDuty(outDuty);
@@ -89,3 +93,14 @@ extern "C" void app_main() {
 
     // Cleanup
 }
+
+
+/*
+//Code below runs the calibration for the MPU6050
+#include "mpu/mpu_calibration.h"
+#include "MPU6050_6Axis_MotionApps20.h" // ONLY INCLUDE ONCE IN PROJECT
+
+extern "C" void app_main() {
+    CalibrateMPU();
+}
+*/
