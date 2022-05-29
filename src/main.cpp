@@ -12,44 +12,20 @@
 
 static const char *TAG = "main";
 VescUart vesc;
-PIDController pid = PIDController(1.5, 0.00003, 0.0, -0.3, 0.3);
+// angle PID keeps the bot upright
+// output is in duty cycle
+PIDController anglePid = PIDController(1.5, 0.00003, 5000.0, -0.3, 0.3);
+// position PID tries to hold place in space
+// output is in radians
+PIDController positionPid = PIDController(0.0001, 0.0, 75.0, -0.2, 0.2);
 MPUValues mpuValues;
 float outDuty;
 int adcReading;
-float setpoint = 0.0;
+float setpoint = 0.0; // radians
+float positionAdjustmentToSetpoint = 0.0;
 MedianFilter mFilter = MedianFilter();
 int enabled = 0;
-float horizontalComponent;
-
-void loop() {
-    // Main code goes here
-    // read angle
-    mpuValues = readMPU();
-    horizontalComponent = sin(mpuValues.ypr[1]);
-    // read setpoint
-    adc2_get_raw(BALANCE_REFERENCE_CHANNEL, ADC_WIDTH_BIT_12, &adcReading);
-    if (mFilter.insert(adcReading)) {
-        // Scale adc reading to float -1.0:1.0
-        // 12-bit ADC gives values 0 to 2048 (2^12)
-        setpoint = ((mFilter.calc() / pow(2, 11)) - 1.0);
-        // Scale to -0.1:0.1 for more sensitivity
-        setpoint = setpoint * 0.1;
-    }
-    // check if enabled (currently negated)
-    enabled = !gpio_get_level(ENABLE_PIN);
-    if (enabled == 1) {
-        // update PID to get output (negated)
-        outDuty = -pid.update(mpuValues.ypr[1], setpoint);
-        // send command to motor controller
-        ESP_LOGI(TAG, "output %1.3f", outDuty);
-        vesc.sendDuty(outDuty);
-    } else {
-        pid.reset();
-        ESP_LOGI(TAG, "disabled");
-        vesc.sendDuty(0.0);
-    }
-    vTaskDelay(0/portTICK_PERIOD_MS);
-}
+int initialTachPosition = 0;
 
 void setupADC() {
     // Check that the channel selected matches the pin configured
@@ -60,6 +36,61 @@ void setupADC() {
     adc2_config_channel_atten(BALANCE_REFERENCE_CHANNEL, ADC_ATTEN_11db);
 }
 
+void getSetpoint() {
+    // read setpoint
+    adc2_get_raw(BALANCE_REFERENCE_CHANNEL, ADC_WIDTH_BIT_12, &adcReading);
+    if (mFilter.insert(adcReading)) {
+        // Scale adc reading to float -1.0:1.0
+        // 12-bit ADC gives values 0 to 2048 (2^12)
+        setpoint = ((mFilter.calc() / pow(2, 11)) - 1.0);
+        // Scale to -0.05:0.05 for more sensitivity
+        setpoint = setpoint * 0.05;
+    }
+}
+
+float getPositionAdjustment() {
+    // update velocity PID
+    // use the position when enabled as setpoint
+    float result = positionPid.update(vesc.currentValues.tachometer, initialTachPosition);
+    return result;
+}
+
+void loop() {
+    // Main code goes here
+    // get vesc runtime information
+    vesc.sendGetValues();
+    vesc.readBytes();
+    // read angle
+    mpuValues = readMPU();
+    // check if enabled (currently negated)
+    enabled = !gpio_get_level(ENABLE_PIN);
+    if (enabled == 1) {
+        // get angle setpoint
+        getSetpoint();
+        // get position adjustment
+        positionAdjustmentToSetpoint = getPositionAdjustment();
+        // update angle PID to get output
+        outDuty = anglePid.update(sin(mpuValues.ypr[1]), sin(setpoint + positionAdjustmentToSetpoint));
+        // send command to motor controller
+        ESP_LOGI(TAG, "angle %1.3f : position adjust %1.3f : output %1.3f", mpuValues.ypr[1], positionAdjustmentToSetpoint, outDuty);
+        vesc.sendDuty(-outDuty);
+    } else {
+        anglePid.reset();
+        positionPid.reset();
+        initialTachPosition = vesc.currentValues.tachometer;
+        vesc.sendDuty(0.0);
+        ESP_LOGI(TAG, "disabled");
+    }
+    vTaskDelay(0/portTICK_PERIOD_MS);
+}
+
+static void sendFunc(unsigned char *data, uint len){
+    vesc.sendFunc(data, len);
+}
+
+static void processFunc(unsigned char *data, uint len){
+    vesc.processFunc(data, len);
+}
 
 extern "C" void app_main() {
     // Setup
@@ -73,7 +104,7 @@ extern "C" void app_main() {
 
     // setup VESC
     vesc = VescUart();
-    vesc.init();
+    vesc.init(&sendFunc, &processFunc);
 
     // setup ADC
     setupADC();
@@ -83,8 +114,21 @@ extern "C" void app_main() {
     gpio_set_direction(ENABLE_PIN, GPIO_MODE_INPUT);
     gpio_pullup_en(ENABLE_PIN);
 
+    // for safety, wait for the device to be disabled before starting anything
+    while(!gpio_get_level(ENABLE_PIN)) {
+        ESP_LOGI(TAG, "Waiting for disable to clear safety");
+        vTaskDelay(0/portTICK_PERIOD_MS);
+    };
+
+    // get initial tach position for 0 reference
+    vesc.sendGetValues();
+    vesc.readBytes();
+    initialTachPosition = vesc.currentValues.tachometer;
+
     // setup PID
-    pid.reset();
+    anglePid.reset();
+    positionPid.reset();
+    
 
     // Begin main loop
     while(true) {
