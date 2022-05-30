@@ -44,25 +44,22 @@ void setupI2C() {
 MPUValues readMPU() {
     uint16_t packetSize = mpu.dmpGetFIFOPacketSize();
     uint8_t mpuIntStatus = mpu.getIntStatus();
+    uint16_t fifoCount = mpu.getFIFOCount();
     MPUValues result {};
 
-    if (mpuIntStatus & 0x02) {
-        // reset DMP FIFO to prevent overflows and get latest info
-        // TODO: do something more efficient to not waste time
+    if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+        // reset DMP FIFO to prevent overflows
         mpu.resetFIFO();
-        // get current FIFO count
-        uint16_t fifoCount = mpu.getFIFOCount();
+    } else {
         // wait for correct available data length, should be a short wait
         while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
-
+ 
         // read a packet from FIFO
         uint8_t fifoBuffer[64];
         mpu.getFIFOBytes(fifoBuffer, packetSize);
         mpu.dmpGetQuaternion(&result.q, fifoBuffer);
         mpu.dmpGetGravity(&result.gravity, &result.q);
         mpu.dmpGetYawPitchRollOnEnd(result.ypr, &result.q, &result.gravity);
-    } else {
-        ESP_LOGE(TAG, "Could not get reading from MPU");
     }
     return result;
 }

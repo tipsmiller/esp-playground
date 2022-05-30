@@ -6,7 +6,7 @@ class PIDController {
         float kp;
         float ki;
         float kd;
-        int minimumCycleMs = 10;
+        int minimumCycleMs = 1;
         int64_t lastTime; // microseconds
         float lastError;
         float lastInput;

@@ -37,7 +37,7 @@ float PIDController::update(float input, float setpoint) {
             // integral
             // Uses a right-side rectangle integration rule, no interpolation
             this->errorIntegral += this->ki * timeDelta * error;
-            // clamp the integral
+            // clamp the integral to prevent wind-up and crazy overshoots
             if(this->errorIntegral > this->outMax) {
                 this->errorIntegral = this->outMax;
             }

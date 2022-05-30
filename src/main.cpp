@@ -14,10 +14,10 @@ static const char *TAG = "main";
 VescUart vesc;
 // angle PID keeps the bot upright
 // output is in duty cycle
-PIDController anglePid = PIDController(1.5, 0.00003, 5000.0, -0.3, 0.3);
+PIDController anglePid = PIDController(2.0, 0.00003, 5000.0, -0.5, 0.5);
 // position PID tries to hold place in space
 // output is in radians
-PIDController positionPid = PIDController(0.0001, 0.0, 75.0, -0.2, 0.2);
+PIDController positionPid = PIDController(0.001, 0.0, 75.0, -0.4, 0.4);
 MPUValues mpuValues;
 float outDuty;
 int adcReading;
@@ -81,7 +81,7 @@ void loop() {
         vesc.sendDuty(0.0);
         ESP_LOGI(TAG, "disabled");
     }
-    vTaskDelay(0/portTICK_PERIOD_MS);
+    //vTaskDelay(0/portTICK_PERIOD_MS);
 }
 
 static void sendFunc(unsigned char *data, uint len){
