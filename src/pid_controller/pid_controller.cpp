@@ -1,15 +1,16 @@
 #include "pid_controller.h"
 
-PIDController::PIDController(float kp, float ki, float kd, float outMin, float outMax) {
-    this->setCoefficients(kp, ki, kd);
+PIDController::PIDController(float kp, float ki, float kde, float kdi, float outMin, float outMax) {
+    this->setCoefficients(kp, ki, kde, kdi);
     this->setLimits(outMin, outMax);
     this->reset();
 }
 
-void PIDController::setCoefficients(float kp, float ki, float kd) {
+void PIDController::setCoefficients(float kp, float ki, float kde, float kdi) {
     this->kp = kp;
     this->ki = ki;
-    this->kd = kd;
+    this->kde = kde;
+    this->kdi = kdi;
 }
 
 void PIDController::setLimits(float outMin, float outMax) {
@@ -46,8 +47,16 @@ float PIDController::update(float input, float setpoint) {
             }
             output += this->errorIntegral;
 
-            //derivative
-            output += this->kd * ((error - this->lastError) / timeDelta);
+            // error derivative
+            output += this->kde * ((error - this->lastError) / timeDelta);
+            // input (process) derivative
+            // weight this by pdiSMoothing to reduce noise
+            float dInput = input - this->lastInput;
+            if (this->pdiSmoothing > 0.0) {
+                dInput = (this->lastDInput + dInput * this->pdiSmoothing) / (1 + this->pdiSmoothing);
+            }
+            this->lastDInput = dInput;
+            output -= this->kdi * (dInput / timeDelta);
         }
         // clamp the output
         if(output > this->outMax) {
@@ -72,4 +81,9 @@ void PIDController::reset() {
     this->lastOutput = 0;
     this->lastTime = 0;
     this->errorIntegral = 0;
+    this->lastDInput = 0;
+}
+
+void PIDController::setPdiSmoothing(float smoothing) {
+    this->pdiSmoothing = smoothing;
 }

@@ -14,10 +14,10 @@ static const char *TAG = "control";
 VescUart vesc;
 // angle PID keeps the bot upright
 // output is in duty cycle
-PIDController anglePid = PIDController(2.0, 0.00003, 5000.0, -0.5, 0.5);
+PIDController anglePid = PIDController(1.0, 0.00003, 0.0, 5000.0, -0.5, 0.5);
 // position PID tries to hold place in space
 // output is in radians
-PIDController positionPid = PIDController(0.001, 0.0, 75.0, -0.4, 0.4);
+PIDController positionPid = PIDController(0.0005, 0.0, 0.0, 400.0, -0.3, 0.3);
 MPUValues mpuValues;
 float outDuty;
 int adcReading;
@@ -92,7 +92,9 @@ void controlTask(void* pvParameters) {
 
     // setup PID
     anglePid.reset();
+    anglePid.setPdiSmoothing(0.2);
     positionPid.reset();
+    positionPid.setPdiSmoothing(0.05);
 
     // begin main loop
     while(true) {
