@@ -1,4 +1,7 @@
 #include "config.h" 
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "heartbeat/heartbeat.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -10,6 +13,8 @@
 static const char *TAG = "main";
 static const char* baseFilePath = "/data";
 
+QueueHandle_t wsMessageQueue;
+
 
 extern "C" void app_main() {
     // Setup
@@ -18,14 +23,18 @@ extern "C" void app_main() {
     // start the heartbeat
     beginHeartbeat();
 
+    // setup message queue http -> control
+    wsMessageQueue = xQueueCreate(10, sizeof(int));
+
     // startup control task
+    setControlQueue(wsMessageQueue);
     TaskHandle_t controlTaskHandle;
     xTaskCreate(controlTask, "control loop", 10000, (void*)NULL, configMAX_PRIORITIES-1, &controlTaskHandle);
 
     // start file system
     ESP_ERROR_CHECK(mountSpiffs(baseFilePath));
     // start webserver
-    ESP_ERROR_CHECK(startWebserver(baseFilePath));
+    ESP_ERROR_CHECK(startWebserver(baseFilePath, wsMessageQueue));
 
     // Cleanup
 }

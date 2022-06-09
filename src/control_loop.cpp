@@ -26,6 +26,8 @@ float positionAdjustmentToSetpoint = 0.0;
 MedianFilter mFilter = MedianFilter();
 int enabled = 0;
 int initialTachPosition = 0;
+int positionInput = 0;
+QueueHandle_t messageQueue;
 
 void setupADC() {
     // Check that the channel selected matches the pin configured
@@ -51,7 +53,7 @@ void getSetpoint() {
 float getPositionAdjustment() {
     // update velocity PID
     // use the position when enabled as setpoint
-    float result = positionPid.update(vesc.currentValues.tachometer, initialTachPosition);
+    float result = positionPid.update(vesc.currentValues.tachometer, initialTachPosition + positionInput);
     return result;
 }
 
@@ -63,7 +65,60 @@ static void processFunc(unsigned char *data, uint len){
     vesc.processFunc(data, len);
 }
 
-void controlTask(void* pvParameters) {
+static void crashDetect() {
+    if (abs(mpuValues.ypr[1]) > 1) {
+        ESP_LOGI(TAG, "crash detected");
+        vesc.sendDuty(0.0);
+        // for safety, wait for the device to be disabled before starting anything
+        while(!gpio_get_level(ENABLE_PIN)) {
+            ESP_LOGI(TAG, "Waiting for disable to clear safety");
+            vTaskDelay(20/portTICK_PERIOD_MS);
+        };
+    }
+}
+
+void readMessages() {
+    // get any updates from the http server
+    int message;
+    while(xQueueReceive(messageQueue, &message, 0)) {
+        ESP_LOGI(TAG, "received position adjustment %d", message);
+        positionInput += message;
+    }
+}
+
+void controlLoop() {
+        // Main code goes here
+        crashDetect();
+        readMessages();
+        // get vesc runtime information
+        vesc.sendGetValues();
+        vesc.readBytes();
+        // read angle
+        mpuValues = readMPU();
+        // check if enabled (currently negated)
+        enabled = !gpio_get_level(ENABLE_PIN);
+        if (enabled == 1) {
+            // get angle setpoint
+            getSetpoint();
+            // get position adjustment
+            positionAdjustmentToSetpoint = getPositionAdjustment();
+            // update angle PID to get output
+            outDuty = anglePid.update(sin(mpuValues.ypr[1]), sin(/*setpoint + */positionAdjustmentToSetpoint));
+            // send command to motor controller
+            ESP_LOGI(TAG, "angle %1.3f : position adjust %1.3f : output %1.3f", mpuValues.ypr[1], /*setpoint + */positionAdjustmentToSetpoint, outDuty);
+            vesc.sendDuty(-outDuty);
+        } else {
+            anglePid.reset();
+            positionPid.reset();
+            initialTachPosition = vesc.currentValues.tachometer;
+            positionInput = 0;
+            vesc.sendDuty(0.0);
+            ESP_LOGI(TAG, "disabled");
+        }
+        //vTaskDelay(0/portTICK_PERIOD_MS);
+}
+
+void controlTask(void* params) {
     // setup MPU6050
     setupI2C();
 
@@ -98,31 +153,10 @@ void controlTask(void* pvParameters) {
 
     // begin main loop
     while(true) {
-        // Main code goes here
-        // get vesc runtime information
-        vesc.sendGetValues();
-        vesc.readBytes();
-        // read angle
-        mpuValues = readMPU();
-        // check if enabled (currently negated)
-        enabled = !gpio_get_level(ENABLE_PIN);
-        if (enabled == 1) {
-            // get angle setpoint
-            getSetpoint();
-            // get position adjustment
-            positionAdjustmentToSetpoint = getPositionAdjustment();
-            // update angle PID to get output
-            outDuty = anglePid.update(sin(mpuValues.ypr[1]), sin(/*setpoint + */positionAdjustmentToSetpoint));
-            // send command to motor controller
-            ESP_LOGI(TAG, "angle %1.3f : position adjust %1.3f : output %1.3f", mpuValues.ypr[1], /*setpoint + */positionAdjustmentToSetpoint, outDuty);
-            vesc.sendDuty(-outDuty);
-        } else {
-            anglePid.reset();
-            positionPid.reset();
-            initialTachPosition = vesc.currentValues.tachometer;
-            vesc.sendDuty(0.0);
-            ESP_LOGI(TAG, "disabled");
-        }
-        //vTaskDelay(0/portTICK_PERIOD_MS);
+        controlLoop();
     }
+}
+
+void setControlQueue(QueueHandle_t q) {
+    messageQueue = q;
 }

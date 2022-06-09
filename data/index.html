@@ -1,7 +1,125 @@
 <!DOCTYPE html>
 <html>
-    <head></head>
+    <head>
+        <script type="text/javascript">
+            const socketUrl = `ws://${location.hostname}/ws`;
+            let websocket;
+            let textMonitorArea;
+            let monitorLines = [];
+            let lastPing;
+            let pingStart;
+            let pingElement;
+
+            function initWebSocket() {
+                console.log('Trying to open a WebSocket connection...');
+                websocket = new WebSocket(socketUrl);
+                websocket.onopen = onOpen;
+                websocket.onclose = onClose;
+                websocket.onmessage = onMessage;
+            }
+
+            function onOpen(event) {
+                console.log('Connection opened');
+                send('hello');
+            }
+
+            function onClose(event) {
+                console.log('Connection closed');
+                setTimeout(initWebSocket, 2000);
+            }
+
+            function onMessage(event) {
+                console.log(`rx: ${event.data}`);
+                switch(event.data) {
+                    case "PONG":
+                        pong();
+                        break;
+                    default:
+                        monitorLines.push(event.data);
+                        textMonitorArea.innerHTML = monitorLines.join("<br>");  
+                }
+            }
+
+            function send(message) {
+                console.log(`tx: ${message}`);
+                websocket.send(message);
+            }
+
+            function left() {
+                send('X-100');
+            }
+
+            function right() {
+                send('X100');
+            }
+            
+            function ping() {
+                pingStart = Date.now();
+                websocket.send('PING');
+            }
+
+            function pong() {
+                lastPing = Date.now() - pingStart;
+                pingElement.innerHTML = `${lastPing/1000}`;
+            }
+
+            function main() {
+                console.log(`onLoad at ${location.hostname}`);
+                textMonitorArea = document.getElementById("text-monitor-area");
+                pingElement = document.getElementById("ping");
+                initWebSocket();
+                setInterval(ping, 500);
+            };
+
+            window.addEventListener('load', main);
+        </script>
+        <style>
+            body {
+                height: 100%;
+                width: 100%;
+                padding: 0;
+                margin: 0;
+                display: flex;
+                font-family: Roboto, sans-serif;
+                font-size: 30px;
+            }
+            .column {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                width: 50%;
+                padding: 25px;
+            }
+            .command-area {
+                display: flex;
+                border: 2px solid green;
+                border-radius: 10px;
+                padding: 10px;
+            }
+            .text-monitor {
+                flex-direction: column;
+            }
+            .ping {
+                text-align: right;
+            }
+            .text-area {
+                height: 250px;
+                overflow-y: scroll;
+            }
+        </style>
+    </head>
     <body>
-        <div><p>Hi there :)</p></div>
+        <div class="column left-column">
+            <div class="direction-buttons command-area">
+                <button id="left" onclick="left()">LEFT</button>
+                <button id="right" onclick="right()">RIGHT</button>
+            </div>
+        </div>
+        <div class="column right-column">
+            <div class="text-monitor command-area">
+                <div class="ping">ping: <span id="ping"></span></div>
+                <div class="text-area" id="text-monitor-area"> </div>
+            </div>
+        </div>
     </body>
 </html>

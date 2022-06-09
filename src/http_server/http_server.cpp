@@ -4,6 +4,7 @@
 #include "esp_vfs.h"
 #include "wifi_client.h"
 #include "http_server.h"
+#include <string>
 
 static const char *TAG = "http server";
 
@@ -18,7 +19,9 @@ struct file_server_data {
     char scratch[SCRATCH_BUFSIZE];
 } server_data;
 
-static esp_err_t get_handler(httpd_req_t *req)
+QueueHandle_t wsQueue;
+
+static esp_err_t get_index_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html");
     const char *filename = "/data/index.html";
@@ -70,8 +73,48 @@ static esp_err_t get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t startWebserver(const char* base_path)
+static esp_err_t websocket_handler(httpd_req_t *req) {
+    uint8_t buf[128] = { 0 };
+    httpd_ws_frame_t ws_pkt;
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+    ws_pkt.payload = buf;
+    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 128);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "httpd_ws_recv_frame failed with %d", ret);
+        return ret;
+    }
+
+    std::string rx = (char*)ws_pkt.payload;
+    ESP_LOGI(TAG, "Got packet with message: %s", rx.c_str());
+    ESP_LOGI(TAG, "Packet type: %d", ws_pkt.type);
+
+    if (rx.compare("PING") == 0) {
+        httpd_ws_frame_t responsePacket = {
+            .final = true,
+            .fragmented = false,
+            .type = HTTPD_WS_TYPE_TEXT,
+            .payload = (uint8_t*)"PONG",
+            .len = 4
+        };
+        ret = httpd_ws_send_frame(req, &responsePacket);
+    } else if (rx[0] == 'X') {
+        int intFromStr = std::stoi(rx.substr(1));
+        xQueueSendToBack(wsQueue, &intFromStr, 1);
+        ret = httpd_ws_send_frame(req, &ws_pkt);
+    } else {
+        ret = httpd_ws_send_frame(req, &ws_pkt);
+    }
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "httpd_ws_send_frame failed with %d", ret);
+    }
+    return ret;
+}
+
+esp_err_t startWebserver(const char* base_path, QueueHandle_t q)
 {
+    wsQueue = q;
     initWiFi();
     strlcpy(server_data.base_path, base_path, sizeof(server_data.base_path));
 
@@ -82,13 +125,26 @@ esp_err_t startWebserver(const char* base_path)
     esp_err_t startCode = httpd_start(&server, &config);
     if (startCode == ESP_OK) {
         // register handlers
-        httpd_uri_t uri_get = {
+        // index.html
+        httpd_uri_t get_index = {
             .uri      = "/",
             .method   = HTTP_GET,
-            .handler  = get_handler,
+            .handler  = get_index_handler,
             .user_ctx = &server_data,
+            .is_websocket = false,
         };
-        httpd_register_uri_handler(server, &uri_get);
+        httpd_register_uri_handler(server, &get_index);
+        // websocket
+        httpd_uri_t get_websocket = {
+            .uri      = "/ws",
+            .method   = HTTP_GET,
+            .handler  = websocket_handler,
+            .user_ctx = NULL,
+            .is_websocket = true,
+            .handle_ws_control_frames = false,
+            .supported_subprotocol = "robots",
+        };
+        httpd_register_uri_handler(server, &get_websocket);
     } else {
         ESP_LOGE(TAG, "Failed to start HTTP server: %d", startCode);
     }
