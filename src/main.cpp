@@ -32,9 +32,9 @@ extern "C" void app_main() {
     xTaskCreate(controlTask, "control loop", 10000, (void*)NULL, configMAX_PRIORITIES-1, &controlTaskHandle);
 
     // start file system
-    ESP_ERROR_CHECK(mountSpiffs(baseFilePath));
+    // ESP_ERROR_CHECK(mountSpiffs(baseFilePath));
     // start webserver
-    ESP_ERROR_CHECK(startWebserver(baseFilePath, wsMessageQueue));
+    // ESP_ERROR_CHECK(startWebserver(baseFilePath, wsMessageQueue));
 
     // Cleanup
 }
